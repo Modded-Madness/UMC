@@ -26,6 +26,12 @@ For full explainations on the modules, their functions, plugin installation inst
 
 
 # Changelog
+3.7.2 Update (11-09-2019)
+-----------------
+umc-core.smx의 변수를 아래와 같이 설정하면 맵 그룹 밑에 모드 연장을 띄울 수 있음.
+sm_umc_max_vote_options 4    // Limits it to 4 gamemode options
+sm_umc_endvote_extends 1 // Adds an "Extend" option to the end of the menu, once per map
+
 3.7.1 Update (11-09-2019)
 -----------------
 - Updated functag functions to typedefs in umc-core.inc to be inline with changes presented in SM 1.10.

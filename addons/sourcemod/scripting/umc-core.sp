@@ -48,7 +48,9 @@ new Handle:cvar_runoff_display      = INVALID_HANDLE;
 new Handle:cvar_runoff_selective    = INVALID_HANDLE;        
 new Handle:cvar_vote_tieramount     = INVALID_HANDLE;
 new Handle:cvar_vote_tierdisplay    = INVALID_HANDLE;
+new Handle:cvar_filename            = INVALID_HANDLE;
 new Handle:cvar_logging             = INVALID_HANDLE;
+new Handle:cvar_max_vote_options    = INVALID_HANDLE;
 new Handle:cvar_extend_display      = INVALID_HANDLE;
 new Handle:cvar_dontchange_display  = INVALID_HANDLE;
 new Handle:cvar_valvemenu           = INVALID_HANDLE;
@@ -203,6 +205,12 @@ public OnPluginStart()
         0, true, 0.0, true, 1.0
     );
 
+    cvar_max_vote_options = CreateConVar(
+        "sm_umc_max_vote_options",
+        "0",
+        "Limits the amount of options in a vote.\n 0 - No limit"
+    );
+    
     cvar_extend_display = CreateConVar(
         "sm_umc_extend_display",
         "0",
@@ -256,7 +264,13 @@ public OnPluginStart()
         "C",
         "Determines where the Tiered Vote Message is displayed on the screen.\n C - Center Message\n S - Chat Message\n T - Top Message\n H - Hint Message"
     );
-
+    
+    cvar_filename = CreateConVar(
+        "sm_umc_randcycle_cyclefile",
+        "umc_mapcycle.txt",
+        "File to use for Ultimate Mapchooser's map rotation."
+    );
+    
     //Version
     cvar_version = CreateConVar(
         "improved_map_randomizer_version", PL_VERSION, "Ultimate Mapchooser's version",
@@ -2461,6 +2475,11 @@ UMC_BuildOptionsError:BuildCatVoteItems(Handle:vM, Handle:result, Handle:okv, Ha
         return BuildOptionsError_NotEnoughOptions;
     }
     
+    //Limit amount of options in vote.
+    new maxOptions = GetConVarInt(cvar_max_vote_options);
+    if (maxOptions && voteCounter > maxOptions)
+    	voteCounter = maxOptions;
+    
     new Handle:voteItem = INVALID_HANDLE;
     decl String:buffer[MAP_LENGTH];
     for (new i = 0; i < voteCounter; i++)
@@ -2472,13 +2491,11 @@ UMC_BuildOptionsError:BuildCatVoteItems(Handle:vM, Handle:result, Handle:okv, Ha
         PushArrayCell(result, voteItem);
     }
     
-    CloseHandle(catArray);
-    
     if (extend)
     {
         voteItem = CreateTrie();
         SetTrieString(voteItem, "info", EXTEND_MAP_OPTION);
-        SetTrieString(voteItem, "display", "Extend Map");
+        SetTrieString(voteItem, "display", "Extend Gamemode");
         if (GetConVarBool(cvar_extend_display))
         {
             InsertArrayCell(result, 0, voteItem);
@@ -2487,6 +2504,15 @@ UMC_BuildOptionsError:BuildCatVoteItems(Handle:vM, Handle:result, Handle:okv, Ha
         {
             PushArrayCell(result, voteItem);
         }
+    }
+    else
+    {
+        new index = GetRandomInt(0, GetArraySize(catArray) - 1);
+        voteItem = CreateTrie();
+        GetArrayString(catArray, index, buffer, sizeof(buffer));
+        SetTrieString(voteItem, "info", buffer);
+        SetTrieString(voteItem, "display", "Random Gamemode");
+        PushArrayCell(result, voteItem);
     }
     
     if (dontChange)
@@ -2503,6 +2529,8 @@ UMC_BuildOptionsError:BuildCatVoteItems(Handle:vM, Handle:result, Handle:okv, Ha
             PushArrayCell(result, voteItem);
         }
     }
+    
+    CloseHandle(catArray);
 
     return BuildOptionsError_Success;
 }
@@ -3345,6 +3373,26 @@ public Handle_MapVoteWinner(Handle:vM, const String:info[], const String:disp[],
     DeleteVoteParams(vM);
 }
 
+Handle:GetMapcycle()
+{
+    //Grab the file name from the cvar.
+    decl String:filename[PLATFORM_MAX_PATH];
+    GetConVarString(cvar_filename, filename, sizeof(filename));
+    
+    //Get the kv handle from the file.
+    new Handle:result = GetKvFromFile(filename, "umc_rotation");
+    
+    //Log an error and return empty handle if the mapcycle file failed to parse.
+    if (result == INVALID_HANDLE)
+    {
+        LogError("SETUP: Mapcycle failed to load!");
+        return INVALID_HANDLE;
+    }
+    
+    //Success!
+    return result;
+}
+
 //Handles the winner of an end-of-map category vote.
 public Handle_CatVoteWinner(Handle:vM, const String:cat[], const String:disp[],
                             Float:percentage)
@@ -3364,7 +3412,23 @@ public Handle_CatVoteWinner(Handle:vM, const String:cat[], const String:disp[],
                 total_votes
         );
         LogUMCMessage("Players voted to extend the map.");
-        ExtendMap(vM);
+        
+        new UMC_ChangeMapTime:change_map_when;
+        decl String:stored_reason[PLATFORM_MAX_PATH];
+        GetTrieValue(vM, "change_map_when", change_map_when);
+        GetTrieString(vM, "stored_reason", stored_reason, sizeof(stored_reason));
+        
+        DisableVoteInProgress(vM);
+         
+        new Handle:mapcycle = GetMapcycle();
+        
+        decl String:map[MAP_LENGTH], String:group[MAP_LENGTH];
+        UMC_GetCurrentMapGroup(group, sizeof(group));
+        UMC_GetRandomMap(mapcycle, mapcycle, group, map, sizeof(map), group, sizeof(group), false, false);
+        
+        CloseHandle(mapcycle);
+        
+        DoMapChange(change_map_when, mapcycle, map, group, stored_reason, map);
     }
     else if (StrEqual(cat, DONT_CHANGE_OPTION))
     {

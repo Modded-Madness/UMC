@@ -26,6 +26,11 @@
     {
         "en"    "Extend Map"
     }
+    
+    "Extend Gamemode"
+    {
+    	"en"    "Extend Gamemode"
+    }
 
     "Don't Change"
     {
