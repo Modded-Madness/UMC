@@ -46,6 +46,11 @@
     {
         "en"    "The current map will be extended."
     }
+    
+    "Gamemode Extended"
+    {
+        "en"    "The current gamemode will be extended."
+    }
 
     "End of Map Vote Map Won"
     {

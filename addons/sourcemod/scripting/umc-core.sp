@@ -3413,22 +3413,24 @@ public Handle_CatVoteWinner(Handle:vM, const String:cat[], const String:disp[],
         );
         LogUMCMessage("Players voted to extend the map.");
         
+        //Custom logic for Modded Madness server.
+        //We cannot fetch mapcycle from the vM variable, because map info is missing on an extend vote.
+        //We instead fetch a new copy of the mapcycle.
         new UMC_ChangeMapTime:change_map_when;
         decl String:stored_reason[PLATFORM_MAX_PATH];
         GetTrieValue(vM, "change_map_when", change_map_when);
         GetTrieString(vM, "stored_reason", stored_reason, sizeof(stored_reason));
         
-        DisableVoteInProgress(vM);
-         
-        new Handle:mapcycle = GetMapcycle();
-        
-        decl String:map[MAP_LENGTH], String:group[MAP_LENGTH];
+        char group[MAP_LENGTH], map[MAP_LENGTH];
         UMC_GetCurrentMapGroup(group, sizeof(group));
-        UMC_GetRandomMap(mapcycle, mapcycle, group, map, sizeof(map), group, sizeof(group), false, false);
         
-        CloseHandle(mapcycle);
-        
-        DoMapChange(change_map_when, mapcycle, map, group, stored_reason, map);
+        Handle mapcycle = GetMapcycle();
+        if (UMC_GetRandomMap(mapcycle, mapcycle, group, map, sizeof(map), group, sizeof(group), false, false))
+        {
+            DisableVoteInProgress(vM);
+            DoMapChange(change_map_when, mapcycle, map, group, stored_reason, map);
+        }
+        delete mapcycle;
     }
     else if (StrEqual(cat, DONT_CHANGE_OPTION))
     {
@@ -3594,7 +3596,7 @@ public Handle_TierVoteWinner(Handle:vM, const String:cat[], const String:disp[],
         PrintToChatAll(
             "[UMC] %t %t (%t)",
             "End of Map Vote Over",
-            "Map Extended",
+            "Gamemode Extended",
             "Vote Win Percentage",
                 percentage,
                 total_votes
