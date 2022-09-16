@@ -78,6 +78,9 @@ new Handle:nomination_reset_forward = INVALID_HANDLE;
 //Sound used during countdown to map vote
 new String:countdown_sound[PLATFORM_MAX_PATH];
 
+//Number of extensions for the current gamemode.
+new extend_count;
+
 /* Reweight System */
 new Handle:reweight_forward = INVALID_HANDLE;
 new Handle:reweight_group_forward = INVALID_HANDLE;
@@ -2491,7 +2494,7 @@ UMC_BuildOptionsError:BuildCatVoteItems(Handle:vM, Handle:result, Handle:okv, Ha
         PushArrayCell(result, voteItem);
     }
     
-    if (extend)
+    if (extend && extend_count < 1)
     {
         voteItem = CreateTrie();
         SetTrieString(voteItem, "info", EXTEND_MAP_OPTION);
@@ -3421,10 +3424,12 @@ public Handle_CatVoteWinner(Handle:vM, const String:cat[], const String:disp[],
         GetTrieValue(vM, "change_map_when", change_map_when);
         GetTrieString(vM, "stored_reason", stored_reason, sizeof(stored_reason));
         
-        char group[MAP_LENGTH], map[MAP_LENGTH];
+        extend_count++;
+        
+        decl String:group[MAP_LENGTH], String:map[MAP_LENGTH];
         UMC_GetCurrentMapGroup(group, sizeof(group));
         
-        Handle mapcycle = GetMapcycle();
+        new Handle:mapcycle = GetMapcycle();
         if (UMC_GetRandomMap(mapcycle, mapcycle, group, map, sizeof(map), group, sizeof(group), false, false))
         {
             DisableVoteInProgress(vM);
@@ -3443,11 +3448,17 @@ public Handle_CatVoteWinner(Handle:vM, const String:cat[], const String:disp[],
                 total_votes
         );
         
+        if (extend_count > 0)
+            extend_count--;
+        
         LogUMCMessage("Players voted to stay on the map (Don't Change).");
         VoteFailed(vM);
     }
     else //Otherwise, we pick a random map from the category and set that as the next map.
     {
+        if (extend_count > 0)
+            extend_count--;
+        
         decl String:map[MAP_LENGTH];
         new Handle:stored_kv, Handle:stored_mapcycle;
         new UMC_ChangeMapTime:change_map_when;
